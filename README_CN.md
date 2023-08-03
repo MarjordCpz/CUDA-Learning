@@ -9,7 +9,16 @@
 >
 > 目录
 >
-> [TOC]
+>  [CUDA学习](#cuda学习)
+>  - [掌握的内容](#掌握的内容)
+>  - [实例记录](#实例记录)
+>    - [`VecAdd.cu`](#vecaddcu)
+>      - [内存类型](#内存类型)
+>      - [CHECK](#check)
+>    - [`MM.cu`](#mmcu)
+>      - [事件时间测试](#事件时间测试)
+>    - [`conv.cu`](#convcu)
+>  - [TO DO](#to-do)
 >
 > 2023-7-31——2023-8-2
 
@@ -98,9 +107,9 @@ cudaMemcpy(error_cpu, *test_cpu, sizeof(bool), cudaMemcpyDeviceToHost);
 
 > 将内容贴在这里，没有应用过，不清楚具体的调用情景以及方式，这也是 **TO DO** 里提到的。
 
-<img src="E:\paper\other\20230802\imgs\GPUmem2.png" style="zoom: 50%;" />
+![image](imgs/GPUmem2.png)
 
-<img src="E:\paper\other\20230802\imgs\GPUmem1.png" style="zoom: 50%;" />
+![image](imgs/GPUmem1.png)
 
 具体的函数见 `MemTest.cu` 文件
 
