@@ -170,10 +170,55 @@ int main(void){
 
 The details and the configuration of `grid` and `block` are similar and not listed here.
 
+
+### `MM_V2.cu`
+
+> Increase speed by chunking matrices and moving them to shared mem for multiplication.
+
+In this implementation of matrix multiplication, a `BLOCK_SIZE` sized `sub` matrix is used to move the data. In this process, I wrote the wrong judgment condition of the loop and caused an error, which is recorded here.
+
+When moving data, the variable `step` is used to split the original large matrix, and the loop condition of `step` is `step <= K / BLOCK_SIZE`. The condition `=` is not added because only the case of integer division is considered at first. And no out-of-bounds judgment was added, resulting in non-integer divisions not being written in the `sub` square.
+
+**A few more details**.
+
+- On Win system, add `cudaDeviceSynchronize();` after calling or executing the function of device to avoid the program can't output. Since this version uses ` __managed__`-modified variables, it does not use data-moving functions. The data moving function automatically calls `cudaDeviceSynchronize();`, so the previous version automatically adjusted it even if it didn't add this function.
+- When timing events, two device function calls are timed using two sets of events.
+
+The speed of the run has increased, and the result on one occasion was as follows
+
+```powershell
+Time_gpu1 is 1.73488 ms.
+Time_gpu2 is 0.31091 ms.
+Time_cpu is 171.48985 ms.
+Result is pass.
+```
+
+
+
+### ``TransM.cu``
+
+> Implement the matrix transpose operation, also use `shared mem` to speed up, but need to pay attention to avoid bank conflict problem. The author lists his understanding.
+
+In shared memory, consecutive 32-bits words are allocated to 32 consecutive banks, which is like the seats in a movie theater: a column of seats is equivalent to a bank, so each row has 32 seats, and in each seat, you can "sit" a 32-bit data (or multiple data less than 32-bits, e.g., 4 data). bits of data, such as 4 char-type data, 2 short-type data); and under normal circumstances, we are in accordance with the order of the first line and then sit down a line to sit in the order of the seat, in the shared memory address mapping is the same way.
+
+Multiple threads in a warp accessing the same bank will conflict, ignoring of course the multicast and broadcast mechanisms. Then as in the following figure, `bank[0][1]` and `bank[0][1]` are in conflict, and after the conflict, the parallelism will be converted to serialization, and the computational efficiency will be reduced dramatically.
+
+Then using padding, you can add out of that column all shift, stagger the conflict data. As shown in the figure below.
+
+! [](imgs/bank.svg)
+
+The result is as follows. Shared memory is used to achieve the speedup effect.
+
+```powershell
+Time_gpu1 is 1.60374 ms.
+Time_gpu2 is 0.71379 ms.
+Time_cpu is 21.53981 ms.
+Result is pass.
+```
+
+
 ## TO DO
 
-- Optimizing Matrix Multiplication
-- Matrix Transpose
 - Atomic manipulation/reduction
 - ......
 
