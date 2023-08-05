@@ -205,7 +205,7 @@ Multiple threads in a warp accessing the same bank will conflict, ignoring of co
 
 Then using padding, you can add out of that column all shift, stagger the conflict data. As shown in the figure below.
 
-! [](imgs/bank.svg)
+![](imgs/bank.svg)
 
 The result is as follows. Shared memory is used to achieve the speedup effect.
 
