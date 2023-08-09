@@ -4,7 +4,7 @@ Using CUDA programming to implement some simple examples.
 >
 > Reference content:
 >
-> - [CUDA 编程模型系列五](https://www.bilibili.com/video/BV1vP411v7g4/?spm_id_from=333.788&vd_source=f9a58fa9ec474778cd43832fb746c14a)
+> - [CUDA 编程模型系列](https://www.bilibili.com/video/BV1vP411v7g4/?spm_id_from=333.788&vd_source=f9a58fa9ec474778cd43832fb746c14a)
 > - [CUDA-Programming-book draft](https://github.com/brucefan1983/CUDA-Programming/blob/master/src/book_draft.pdf)
 >
 > Table of Contents:
@@ -18,10 +18,12 @@ Using CUDA programming to implement some simple examples.
 >    - [`MM.cu`](#mmcu)
 >      - [event time test](#event-time-test)
 >    - [`conv.cu`](#convcu)
->  - [TO DO](#to-do)
+>    - [`MM_V2.cu`](#mm_v2cu)
+>    - [`TransM.cu`](#transmcu)
+>    - [`Reduce.cu`](#reducecu)
+>    - [`topk.cu`](#topkcu)
 >
-> 2023-7-31--2023-8-2
-
+> 2023-7-31--2023-8-9
 
 
 ## Mastery
@@ -216,11 +218,77 @@ Time_cpu is 21.53981 ms.
 Result is pass.
 ```
 
+### `Reduce.cu`.
 
-## TO DO
+> Implemented a summing operation on an array, using shared memory as well as atomic operations, and learned the conditions for using atomic operations in that scenario. Documented understanding of the core steps.
 
-- Atomic manipulation/reduction
-- ......
+- Add back the data beyond what the number of threads can handle to the corresponding location, with the data spaced by the number of all threads. The length of the data is now the full number of threads.
+- Use shared memory to collect data the size of the number of threads in a block for processing. This is now equivalent to all the blocks processing a piece of data of length `blockDim.x` in parallel.
+- In the end, since there is only one result, the first thread in each block uses an atomic summing operation to accumulate the results.
+
+At first, I did not understand how to store the data of length `gridDim.x * blcokDim.x` with only `BLOCK_SIZE` size of shared memory. It finally occurred to me that the shared memory is distributed in each block, so it's equivalent to an array performing parallel operations.
+
+### `topk.cu`
+
+> Implemented to find the top k largest data. Record the understanding of the core steps as follows.
+
+- In the main function section `2_pass` is used to compute the result in two steps.
+
+- Again, as in the previous example of the statute, the number of threads in excess of the number of threads is calculated first, and arranged in order of size. The total number is now `gridDim.x * blcokDim.x`.
+
+- Allocate shared memory, the size of the shared memory is `K * BLOCK_SIZE` which corresponds to processing K data per thread. To make it easier to understand the process, the author is testing it with a small amount of data.
+
+   ```powershell
+  topk[0] is 15.
+  topk[0] is 16.
+  topk[0] is 17.
+  topk[0] is 18.
+  topk[0] is 19.
+  topk[0] is 20.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  topk[1] is 9.
+  topk[1] is 10.
+  topk[1] is 11.
+  topk[1] is 12.
+  topk[1] is 13.
+  topk[1] is 14.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  topk[2] is 3.
+  topk[2] is 4.
+  topk[2] is 5.
+  topk[2] is 6.
+  topk[2] is 7.
+  topk[2] is 8.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  ```
+
+  You can see that each thread manages k data, which is equivalent to the above reductio ad absurdum operation a thread manages an array.
+
+- Still using a `step` for the loop, the original thread corresponding to the array offset, from which the selected data and the original thread data sorting, to get the final result
+
+- Once this has been done, you can derive the topk array under each block, using `2_pass` and setting `grid_size` to 1 on the second call to the function.
+
+The final result:
+
+```powershell
+Result: Pass
+CPU time: 56.72; GPU time: 0.83
+```
 
 
 
