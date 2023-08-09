@@ -4,7 +4,7 @@
 >
 > 参考内容：
 >
-> - [CUDA编程模型系列五](https://www.bilibili.com/video/BV1vP411v7g4/?spm_id_from=333.788&vd_source=f9a58fa9ec474778cd43832fb746c14a)
+> - [CUDA编程模型系列](https://www.bilibili.com/video/BV1vP411v7g4/?spm_id_from=333.788&vd_source=f9a58fa9ec474778cd43832fb746c14a)
 > - [CUDA-Programming-book draft](https://github.com/brucefan1983/CUDA-Programming/blob/master/src/book_draft.pdf)
 >
 > 目录
@@ -18,9 +18,13 @@
 >    - [`MM.cu`](#mmcu)
 >      - [事件时间测试](#事件时间测试)
 >    - [`conv.cu`](#convcu)
->  - [TO DO](#to-do)
+>    - [`MM_V2.cu`](#mm_v2cu)
+>    - [`TransM.cu`](#transmcu)
+>    - [`Reduce.cu`](#reducecu)
+>    - [`topk.cu`](#topkcu)
+> 
 >
-> 2023-7-31——2023-8-2
+> 2023-7-31——2023-8-9
 
 
 
@@ -217,8 +221,75 @@ Result is pass.
 ```
 
 
+### `Reduce.cu`
 
-## TO DO
+> 实现了一个数组的求和操作，使用了共享内存以及原子操作，了解到该场景下的原子操作使用条件。记录核心步骤的理解。
 
-- 原子操作/归约
-- ......
+- 将线程数能处理之外的数据加回到对应的位置，数据的间隔为所有的线程数。现在的数据长度是全部的线程数。
+- 使用共享内存收集一个块内线程数大小的数据进行处理。现在相当于所有的块并行处理一个长度为 `blockDim.x` 的数据。
+- 最后由于结果只有一个，每一个块的第一个线程使用原子相加的操作实现结果的累加。
+
+笔者当初不理解为什么只申请了 `BLOCK_SIZE` 大小的共享内存，却可以将长度为 `gridDim.x * blcokDim.x` 的数据存放起来。最后想到了共享内存在每一个block中都有分布，因此，相当于是一个数组进行了并行运算。
+
+### `topk.cu`
+
+> 实现了找出前k个最大数据的功能。记录核心步骤的理解，如下。
+
+- 在主函数的部分使用了 `2_pass` 将结果分成两步骤计算出来。
+
+- 还是如同上一个规约的例子，先计算超出线程数的部分，按照大小排列好。现在的总数量为`gridDim.x * blcokDim.x` 。
+
+- 分配共享内存，共享内存的大小为 `K * BLOCK_SIZE` 相当于每一个线程处理K个数据。为了便于理解这个过程，笔者是用少量数据测试了一下。
+
+  ```powershell
+  topk[0] is 15.
+  topk[0] is 16.
+  topk[0] is 17.
+  topk[0] is 18.
+  topk[0] is 19.
+  topk[0] is 20.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  topk[1] is 9.
+  topk[1] is 10.
+  topk[1] is 11.
+  topk[1] is 12.
+  topk[1] is 13.
+  topk[1] is 14.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  topk[2] is 3.
+  topk[2] is 4.
+  topk[2] is 5.
+  topk[2] is 6.
+  topk[2] is 7.
+  topk[2] is 8.
+  The blockidx is 1. Threadidx is 0.
+  The blockidx is 1. Threadidx is 1.
+  The blockidx is 2. Threadidx is 0.
+  The blockidx is 2. Threadidx is 1.
+  The blockidx is 0. Threadidx is 0.
+  The blockidx is 0. Threadidx is 1.
+  ```
+
+  可以看到每一个线程管理k个数据，相当于上述的归约操作一个线程管理了一个数组。
+
+- 仍然使用一个 `step` 进行循环，将原本thread对应的数组偏移，从中选取数据与原thread的数据进行排序，得到最终的结果
+
+- 处理好以后可以得出每一个block下面的topk数组，使用 `2_pass` ，第二次调用函数时将 `grid_size`设置为1。
+
+最终得出结果：
+
+```powershell
+Result: Pass
+CPU time: 56.72; GPU time: 0.83
+```
+
